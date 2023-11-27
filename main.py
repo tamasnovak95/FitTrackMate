@@ -1,10 +1,16 @@
 import os
+
+import fontTools.feaLib.ast
 import toga
 from toga.style import Pack
 import json
 import datetime
 import matplotlib.pyplot as plt
 from PIL import Image
+
+
+
+
 def save_training_data(data):
     try:
         with open('training_data.json', 'w') as file:
@@ -146,14 +152,49 @@ def create_weight_chart_and_save():
         print('Weight chart image saved as saved_chart_weight.jpg')
     else:
         print('Error: Image file does not exist')
+#default_font_size = 10  # Alapértelmezett érték, ha a fájlban nem lenne megadva
 
 class FitTrackMateApp(toga.App):
+    SETTINGS_FILE = 'settings.json'
+
     def __init__(self, formal_name, package_name):
         super().__init__(formal_name, package_name)
 
         # A név tárolása
         self._name = None
 
+    def load_default_font_size(self):
+        default_font_size = 12  # Alapértelmezett érték, ha a fájlban nem lenne megadva
+
+        try:
+            if not os.path.exists(self.SETTINGS_FILE):
+                self.create_default_settings()
+
+            with open(self.SETTINGS_FILE, 'r') as file:
+                data = json.load(file)
+                default_font_size = data.get('defaultFontSize')  # A fájlból betöltött érték vagy alapértelmezett érték
+        except json.JSONDecodeError:
+            print("A settings.json fájl nem megfelelő JSON formátumú.")
+        return default_font_size
+
+    def create_default_settings(self):
+        default_settings = {'defaultFontSize': 12}  # Alapértelmezett beállítások létrehozása
+        with open(self.SETTINGS_FILE, 'w') as file:
+            json.dump(default_settings, file, indent=4)
+
+    def change_default_setting(self,new_size):
+        try:
+            with open(self.SETTINGS_FILE, 'r+') as file:
+                data = json.load(file)
+                data['defaultFontSize'] = new_size
+                file.seek(0)
+                json.dump(data, file, indent=4)
+                file.truncate()
+                self.default_font_size = new_size  # Frissítjük az aktuális beállítást is
+        except json.JSONDecodeError:
+            print("A settings.json not valid JSON format.")
+        except Exception as e:
+            print(f"Some issue happens: {str(e)}")
     def startup(self):
         # Fájl ellenőrzése és név beolvasása, ha van ilyen
         if os.path.exists("name.json"):
@@ -170,12 +211,16 @@ class FitTrackMateApp(toga.App):
             # Ha nincs elmentett név, akkor kérünk egyet
             self.ask_for_name()
 
+        if not os.path.exists(self.SETTINGS_FILE):
+            self.create_default_settings()
+        else:
+            self.load_default_font_size()
     def ask_for_name(self):
         # Szöveges beviteli mező
         self.name_input = toga.TextInput()
 
         # Gomb az adat beküldésére és az üzenet kezelésére
-        self.submit_button = toga.Button('Submit', on_press=self.submit_name)
+        self.submit_button = toga.Button('Submit', on_press=self.submit_name,style=Pack(font_size=self.load_default_font_size()))
 
         # Készítsünk el egy elrendezést (box layout)
         self.box = toga.Box(children=[toga.Label('Please enter your name'), self.name_input, self.submit_button],
@@ -200,40 +245,43 @@ class FitTrackMateApp(toga.App):
 
             # Az üdvözlő üzenet megjelenítése az ablakban
             self.show_welcome_screen()
+    def fontsize(self, size):
+         return Pack(font_family='Arial', font_size=size)
 
     def show_welcome_screen(self, widget=None):
         # Üdvözlő üzenet
-        self.greeting_label = toga.Label(f"Welcome, {self._name}!")
-
+        default_font_size = self.load_default_font_size()
+        self.greeting_label = toga.Label(f"Welcome, {self._name}!",style=Pack(font_size=self.load_default_font_size()))
+        button_style = self.fontsize(default_font_size)
         #főmenü gombo
-        button1 = toga.Button('Training register', on_press=self.handle_training_entry)
-        button2 = toga.Button('Weight register', on_press=self.handle_weight_entry)
-        button3 = toga.Button('Training track', on_press=self.handle_training_statistics)
-        button4 = toga.Button('Weight track', on_press=self.handle_weight_statistics)
-        button5 = toga.Button('Options', on_press=self.handle_settings)
+        button1 = toga.Button('Training register',style=button_style, on_press=self.handle_training_entry)
+        button2 = toga.Button('Weight register',style=button_style, on_press=self.handle_weight_entry)
+        button3 = toga.Button('Training track',style=button_style, on_press=self.handle_training_statistics)
+        button4 = toga.Button('Weight track', style=button_style, on_press=self.handle_weight_statistics)
+        button5 = toga.Button('Options',style=button_style, on_press=self.handle_settings)
         #Elrendezés
         self.box = toga.Box(children=[self.greeting_label, button1, button2, button3, button4, button5],
-                            style=Pack(direction='column', padding=20))
+                            style=Pack(direction='column', padding=20,))
 
         # A box layout-ot rendeljük az ablak közepére
         self.main_window.content = self.box
     pass
     # Gomb kezelő függvények
     def handle_training_entry(self, widget):
-        self.greeting_label = toga.Label(f"{self._name}!, here you can register your training on daily basis")
+        self.greeting_label = toga.Label(f"{self._name}!, here you can register your training on daily basis",style=Pack(font_size=self.load_default_font_size()))
         # Betöltjük az eddigi adatokat
         self.training_data = load_trainingData()
         # Vissza gomb létrehozása
-        back_button = toga.Button('Back', on_press=self.show_welcome_screen)
+        back_button = toga.Button('Back', style=Pack(font_size=self.load_default_font_size()), on_press=self.show_welcome_screen,)
         #input elemek
-        self.training_type = toga.TextInput(placeholder='Training type')
-        self.kal_input = toga.TextInput(placeholder='Burnt calories')
-        self.time_input = toga.TextInput(placeholder='Time')
+        self.training_type = toga.TextInput(placeholder='Training type',style=Pack(font_size=self.load_default_font_size()))
+        self.kal_input = toga.TextInput(placeholder='Burnt calories',style=Pack(font_size=self.load_default_font_size()))
+        self.time_input = toga.TextInput(placeholder='Time',style=Pack(font_size=self.load_default_font_size()))
 
         # Dátumválasztó
         self.date_picker = toga.DatePicker()
         # Gomb a beírt adatok mentésére
-        self.submit_button = toga.Button('SAVE', on_press=self.handle_submit)
+        self.submit_button = toga.Button('SAVE', on_press=self.handle_submit,style=Pack(font_size=self.load_default_font_size()))
 
 
         # Készítsünk el egy elrendezést (box layout)
@@ -269,25 +317,24 @@ class FitTrackMateApp(toga.App):
         self.kal_input.value = ''
         self.time_input.value = ''
     def handle_weight_entry(self, widget):
-        self.greeting_label = toga.Label(f"{self._name}!, here you can register your weight on daily basis")
+        self.greeting_label = toga.Label(f"{self._name}!, here you can register your weight on daily basis",style=Pack(font_size=self.load_default_font_size()))
         # Betöltjük az eddigi adatokat
         self.weight_data = load_weight_data()
         # Vissza gomb létrehozása
-        back_button = toga.Button('Back', on_press=self.show_welcome_screen)
+        back_button = toga.Button('Back', on_press=self.show_welcome_screen,style=Pack(font_size=self.load_default_font_size()))
         # Input elemek
-        self.weight_input = toga.TextInput(placeholder='Weight')
+        self.weight_input = toga.TextInput(placeholder='Weight',style=Pack(font_size=self.load_default_font_size()))
 
         # Dátumválasztó
         self.date_picker = toga.DatePicker()
 
         # Gomb a beírt adatok mentésére
-        self.submit_button = toga.Button('Save', on_press=self.handle_weight_submit)
-        self.error_label = toga.Label('Please enter weight in correct format (e.g., 95,0)', style=Pack(color='red'))
+        self.submit_button = toga.Button('Save', on_press=self.handle_weight_submit,style=Pack(font_size=self.load_default_font_size()))
+        self.error_label = toga.Label('Please enter weight in correct format (e.g., 95,0)', style=Pack(font_size=self.load_default_font_size(),color='red'))
         # Készítsünk el egy elrendezést (box layout)
         self.box = toga.Box(
             children=[self.greeting_label, back_button, self.weight_input, self.date_picker, self.submit_button,
-                      self.error_label],
-            style=Pack(direction='column', padding=20))
+                      self.error_label], style=Pack(direction='column', padding=20))
 
 
         # A box layout-ot rendeljük az ablak közepére
@@ -331,7 +378,7 @@ class FitTrackMateApp(toga.App):
     def handle_training_statistics(self, widget):
         # Az edzés statisztikák kezelése
 
-        back_button = toga.Button('Back', on_press=self.handle_back_button)
+        back_button = toga.Button('Back', on_press=self.handle_back_button,style=Pack(font_size=self.load_default_font_size()))
 
         # Statisztika megjelenítése
 
@@ -347,7 +394,7 @@ class FitTrackMateApp(toga.App):
     def handle_weight_statistics(self, widget):
         # A súly statisztikák kezelése
 
-        back_button = toga.Button('Back', on_press=self.handle_back_button)
+        back_button = toga.Button('Back', on_press=self.handle_back_button,style=Pack(font_size=self.load_default_font_size()))
 
         # Statisztika megjelenítése
 
@@ -368,7 +415,34 @@ class FitTrackMateApp(toga.App):
 
         self.show_welcome_screen()
     def handle_settings(self, widget):
+        # Vissza gomb létrehozása
+        back_button = toga.Button('Back', on_press=self.show_welcome_screen,style=Pack(font_size=self.load_default_font_size()))
         # A beállítások kezelése
+        # Felhasználó törlése
+        # Felhasználó nevének megváltoztatása
+        # Betűméret beállítása
+        self.FONTSIZE = toga.TextInput(placeholder='Font-Size',style=Pack(font_size=self.load_default_font_size()))
+        self.submit_button = toga.Button('Save', on_press=self.submit_settings,style=Pack(font_size=self.load_default_font_size()))
+
+        self.box = toga.Box(
+            children=[back_button, self.FONTSIZE, self.submit_button], style=Pack(direction='column', padding=20))
+        self.main_window.content = self.box
+        pass
+    def submit_settings(self, widget):
+        try:
+            size = int(self.FONTSIZE.value)  # Betűméret konvertálása egész számmá
+            if size < 5 or size > 50:
+                # Hibaüzenet, ha a beírt érték nem megfelelő
+                self.main_window.info_dialog('Error', 'The font size must be at least 5, but no more than 50.')
+            else:
+                # Betűméret módosítása
+                self.change_default_setting(size)
+                self.main_window.info_dialog('Success', f'New font size: {size}')
+                self.handle_settings(None)
+        except ValueError:
+            # Hibaüzenet, ha nem számot adott meg a felhasználó
+            self.main_window.info_dialog('Error', 'Please enter a valid number.')
+
         pass
 def main():
     create_training_chart_and_save()
